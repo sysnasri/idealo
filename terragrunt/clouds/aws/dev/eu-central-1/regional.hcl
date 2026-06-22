@@ -1,0 +1,1 @@
+# This is regional variable placeholder such as aws_region or vairables common between teams.

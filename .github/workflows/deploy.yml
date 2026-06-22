@@ -1,0 +1,53 @@
+name: Terragrunt Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "modules/**"
+      - "envs/**"
+      - ".github/workflows/deploy.yml"
+
+env:
+  TF_VERSION: "1.7.5"
+  TG_VERSION: "0.55.0" # Keeps version parity with your CI pipeline
+  WORKING_DIR: envs/staging
+
+jobs:
+  apply:
+    name: Terragrunt Apply
+    runs-on: ubuntu-latest
+    # "production-approval" is a GitHub Environment with required reviewers
+    # configured in repo settings. This is the manual gate before anything
+    # touches real infrastructure - see README "Production Readiness" for
+    # how this extends to a real prod environment with its own approvers.
+    environment: production-approval
+    permissions:
+      contents: read
+      id-token: write # needed for OIDC -> AWS role assumption
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false # Disabled to prevent output formatting conflicts with Terragrunt
+
+      - uses: gruntwork-io/setup-terragrunt@v3
+        with:
+          terragrunt_version: ${{ env.TG_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Terragrunt init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terragrunt init --terragrunt-non-interactive
+
+      # -auto-approve is passed cleanly down to Terraform by Terragrunt
+      - name: Terragrunt apply
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terragrunt apply -auto-approve --terragrunt-non-interactive

@@ -1,0 +1,1 @@
+This place for Terraform code to create s3 and dynambdb to store Terragrunt statefiles (chicken and egg problem.)
